@@ -1,0 +1,139 @@
+{
+  "uid": "saap-main",
+  "title": "SAAP — Produção em tempo real",
+  "tags": ["saap", "producao"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "10s",
+  "time": { "from": "now-12h", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Peças no período — linha toda",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "datasource": { "type": "influxdb", "uid": "saap-influx" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "saap-influx" },
+          "rawQuery": true,
+          "query": "SELECT sum(\"delta\") FROM \"producao\" WHERE $timeFilter",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] },
+      "options": {
+        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 2,
+      "type": "bargauge",
+      "title": "Peças por bancada — período",
+      "gridPos": { "h": 6, "w": 16, "x": 8, "y": 0 },
+      "datasource": { "type": "influxdb", "uid": "saap-influx" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "saap-influx" },
+          "rawQuery": true,
+          "query": "SELECT sum(\"delta\") FROM \"producao\" WHERE $timeFilter GROUP BY \"bancada\"",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "orange", "value": 40 }, { "color": "green", "value": 80 } ] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "showUnfilled": true
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Peças por hora (ritmo da linha)",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 6 },
+      "datasource": { "type": "influxdb", "uid": "saap-influx" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "saap-influx" },
+          "rawQuery": true,
+          "query": "SELECT sum(\"delta\") FROM \"producao\" WHERE $timeFilter GROUP BY time(1h), \"bancada\" fill(0)",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 1,
+            "stacking": { "mode": "normal", "group": "A" }
+          }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Total do turno por bancada",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "datasource": { "type": "influxdb", "uid": "saap-influx" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "saap-influx" },
+          "rawQuery": true,
+          "query": "SELECT last(\"total_turno\") FROM \"producao\" WHERE $timeFilter GROUP BY \"bancada\"",
+          "resultFormat": "table"
+        }
+      ],
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": { "showHeader": true }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Peças por minuto (últimos eventos) — detecção visual de micro-parada",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "datasource": { "type": "influxdb", "uid": "saap-influx" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "saap-influx" },
+          "rawQuery": true,
+          "query": "SELECT sum(\"delta\") FROM \"producao\" WHERE $timeFilter GROUP BY time(1m), \"bancada\" fill(0)",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "spanNulls": false }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    }
+  ]
+}
