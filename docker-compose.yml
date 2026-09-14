@@ -37,8 +37,11 @@ services:
     ports:
       - "1880:1880"        # editor Node-RED — mesma ressalva do Mosquitto/Postgres: só LAN
     volumes:
-      - node_red_data:/data                      # estado do Node-RED (node_modules, credenciais)
-      - ./node-red/flows.json:/data/flows.json    # o fluxo em si: editável e versionado, igual ao dashboard do Grafana
+      - node_red_data:/data   # todo o userDir: node_modules, flows.json (copiado no build), credenciais
+      # SEM bind mount do flows.json aqui: o Node-RED salva o fluxo renomeando
+      # um arquivo temporário por cima dele, e isso falha (EBUSY) se o alvo for
+      # um bind mount de arquivo único. flows.json entra no volume via COPY no
+      # node-red/Dockerfile — ver o comentário lá para o fluxo de edição.
     depends_on:
       - mosquitto
       - postgres

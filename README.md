@@ -36,7 +36,6 @@ Nó de bancada (ESP32)                    Servidor (Raspberry Pi 5 / PC)
 ```bash
 cp .env.example .env        # troque GRAFANA_PASSWORD e POSTGRES_PASSWORD
 chmod -R a+rX grafana mosquitto postgres   # Grafana (uid 472) precisa ler as configs
-chmod a+rw node-red/flows.json             # o Node-RED (uid 1000) precisa poder salvar o fluxo
 docker compose up -d --build               # --build: a 1ª vez compila a imagem do Node-RED
 docker compose ps           # todos "running"
 ```
@@ -191,11 +190,26 @@ num painel próprio.
 3. Cole em `grafana/dashboards/saap.json` e faça commit.
    No próximo `docker compose up` o painel já sobe com suas alterações.
 
-**Fluxo do Node-RED:** diferente do Grafana, `node-red/flows.json` é montado
-com bind mount de arquivo único (não é só lido na subida) — então salvar pela
-própria interface (`http://localhost:1880` → **Deploy**) já escreve direto
-nesse arquivo do repositório. Depois é só `git add node-red/flows.json` e
-commitar, igual ao dashboard.
+**Fluxo do Node-RED:** `node-red/flows.json` entra na imagem via `COPY` no
+`node-red/Dockerfile` (não é bind mount — o Node-RED salva o fluxo renomeando
+um arquivo temporário por cima do `flows.json`, e isso trava com `EBUSY` se o
+arquivo for um bind mount). Editar pela interface (`http://localhost:1880` →
+**implementar**/Deploy) salva normalmente, só que **dentro do volume**
+`node_red_data`, não direto no arquivo do repositório. Pra levar uma edição de
+volta pro Git:
+
+```bash
+docker cp saap-node-red:/data/flows.json node-red/flows.json
+git add node-red/flows.json && git commit -m "atualiza fluxo do Node-RED"
+```
+
+E pro caminho inverso — aplicar uma mudança do repositório numa instalação que
+já está rodando (o volume já existe e não é re-semeado sozinho):
+
+```bash
+docker cp node-red/flows.json saap-node-red:/data/flows.json
+docker compose restart node-red
+```
 
 ## Segurança (antes de usar de verdade)
 

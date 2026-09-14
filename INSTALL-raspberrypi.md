@@ -189,10 +189,7 @@ nano .env            # troque GRAFANA_PASSWORD e POSTGRES_PASSWORD; Ctrl+O, Ente
 
 # IMPORTANTE: o Grafana roda como uid 472 dentro do container e precisa
 # de permissão de leitura nas pastas de configuração copiadas para a Pi.
-# O Node-RED roda como uid 1000 e precisa poder ESCREVER no flows.json
-# (é ali que ele salva quando você aperta "Deploy" no editor).
 chmod -R a+rX grafana mosquitto postgres
-chmod a+rw node-red/flows.json
 
 docker compose up -d --build
 docker compose ps    # os 4 serviços devem aparecer como "running"
