@@ -1,8 +1,8 @@
 # Instalação do servidor SAAP na Raspberry Pi 5 (do zero)
 
 Guia completo, assumindo que **nada foi instalado** na Pi ainda. Ao final, a Pi
-sobe o broker MQTT + InfluxDB + Grafana automaticamente a cada boot, e os nós
-ESP32 publicam nela.
+sobe o broker MQTT + Node-RED + PostgreSQL + Grafana automaticamente a cada
+boot, e os nós ESP32 publicam nela.
 
 Tempo estimado: 40–60 min (a maior parte é download).
 
@@ -147,9 +147,12 @@ docker run --rm hello-world
 docker compose version
 ```
 
-O Docker já sobe sozinho no boot. As imagens `eclipse-mosquitto`, `influxdb:1.8`,
-`telegraf` e `grafana-oss` têm versão **arm64**, que é o que a Pi 5 usa — não
-precisa mudar nada no `docker-compose.yml`.
+O Docker já sobe sozinho no boot. As imagens `eclipse-mosquitto`, `postgres`,
+`nodered/node-red` e `grafana-oss` têm versão **arm64**, que é o que a Pi 5
+usa — não precisa mudar nada no `docker-compose.yml`. A imagem do Node-RED é
+compilada na própria Pi na primeira subida (`docker compose up --build`),
+porque instala ali o node de PostgreSQL — isso adiciona alguns minutos só na
+primeira vez.
 
 ---
 
@@ -182,27 +185,37 @@ cd ~/saap-servidor
 
 ```bash
 cp .env.example .env
-nano .env            # troque GRAFANA_PASSWORD por uma senha forte; Ctrl+O, Enter, Ctrl+X
+nano .env            # troque GRAFANA_PASSWORD e POSTGRES_PASSWORD; Ctrl+O, Enter, Ctrl+X
 
 # IMPORTANTE: o Grafana roda como uid 472 dentro do container e precisa
 # de permissão de leitura nas pastas de configuração copiadas para a Pi.
-chmod -R a+rX grafana telegraf mosquitto
+# O Node-RED roda como uid 1000 e precisa poder ESCREVER no flows.json
+# (é ali que ele salva quando você aperta "Deploy" no editor).
+chmod -R a+rX grafana mosquitto postgres
+chmod a+rw node-red/flows.json
 
-docker compose up -d
+docker compose up -d --build
 docker compose ps    # os 4 serviços devem aparecer como "running"
 ```
 
 > Se você já subiu antes de rodar o `chmod`, rode-o agora e depois
-> `docker compose restart grafana telegraf`.
+> `docker compose restart grafana node-red`.
 
-A primeira subida baixa ~500 MB de imagens — pode levar alguns minutos.
+A primeira subida baixa ~500 MB de imagens e compila a imagem do Node-RED —
+pode levar alguns minutos.
 
 Acompanhe a ingestão:
 
 ```bash
-docker compose logs -f telegraf
-# deve conectar em mosquitto:1883 e em influxdb:8086 sem erro
+docker compose logs -f node-red
+# deve conectar em mosquitto:1883 e em postgres:5432 sem erro
 ```
+
+Depois, abra `http://saap.local:1880` (ou `http://<ip-da-pi>:1880`), entre no
+node **"Gravar evento"** → editar a config **"PostgreSQL"** → digite a senha
+de `POSTGRES_PASSWORD` no campo Password → **Update** → **Deploy** (botão
+vermelho, canto superior direito). Só precisa fazer isso uma vez por
+instalação — fica salvo, criptografado, no volume `node_red_data`.
 
 ---
 
@@ -241,8 +254,8 @@ mosquitto_sub -h localhost -t 'fabrica/#' -v
 Ver os dados já gravados no banco:
 
 ```bash
-docker exec -it saap-influxdb influx -database saap \
-  -execute 'SELECT * FROM producao ORDER BY time DESC LIMIT 5'
+docker exec -it saap-postgres psql -U saap -d saap \
+  -c 'SELECT * FROM producao ORDER BY recebido_em DESC LIMIT 5;'
 ```
 
 ---
@@ -288,8 +301,8 @@ Teste de verdade: `sudo reboot`, espere 2 min, reconecte e rode `docker compose 
 | Subir de novo | `docker compose up -d` |
 | Atualizar imagens | `docker compose pull && docker compose up -d` |
 | Limpar lixo do Docker | `docker system prune -f` |
-| Backup do InfluxDB | `docker run --rm -v saap-servidor_influxdb_data:/data -v $PWD:/backup alpine tar czf /backup/influx-backup.tgz /data` |
-| Backup do Grafana | idem, trocando por `saap-servidor_grafana_data` |
+| Backup do PostgreSQL | `docker exec saap-postgres pg_dump -U saap saap > backup-saap-$(date +%F).sql` |
+| Backup do Grafana | `docker run --rm -v saap-servidor_grafana_data:/data -v $PWD:/backup alpine tar czf /backup/grafana-backup.tgz /data` |
 
 > O nome do volume começa com o nome da pasta (`saap-servidor_...`). Confirme com `docker volume ls`.
 
@@ -303,11 +316,12 @@ Teste de verdade: `sudo reboot`, espere 2 min, reconecte e rode `docker compose 
 | Pi trava ou reinicia sob carga | Cooler não instalado ou cartão ruim. Instale o cooler; considere SSD USB. |
 | `saap.local` não resolve | Use o IP direto. No Windows, instale o "Bonjour" ou use o IP. |
 | Grafana abre mas painel vazio | Nenhum dado ainda. Rode o simulador (passo 10). |
-| `telegraf` reiniciando nos logs | Erro de conexão. Veja `docker compose logs telegraf`. Confirme que `mosquitto` e `influxdb` estão "running". |
-| Grafana sem data source / dashboard e log com `provisioning ... permission denied` | As pastas copiadas não têm leitura para o uid 472. Rode `chmod -R a+rX grafana telegraf mosquitto` e `docker compose restart grafana`. |
+| `node-red` reiniciando nos logs | Erro de conexão. Veja `docker compose logs node-red`. Confirme que `mosquitto` e `postgres` estão "running". |
+| Painel "evento gravado" no Node-RED sempre vazio | A senha do Postgres não foi configurada no node "Gravar evento" (ver passo 8) — o insert está falhando silenciosamente; veja `docker compose logs node-red` para o erro real. |
+| Grafana sem data source / dashboard e log com `provisioning ... permission denied` | As pastas copiadas não têm leitura para o uid 472. Rode `chmod -R a+rX grafana mosquitto postgres` e `docker compose restart grafana`. |
 | Log com `database is locked` (Grafana) | SQLite no cartão SD. Já mitigado com `GF_DATABASE_WAL=true` no compose; se persistir, migre o boot para SSD USB. |
 | Gráficos com horário errado | Relógio da Pi. `timedatectl` deve mostrar "synchronized: yes". Sem internet no boot, a Pi 5 tem RTC de hardware — ligue-a à internet ao menos uma vez para sincronizar. |
-| Dados não aparecem no InfluxDB | Veja o formato da mensagem MQTT (passo 10) — o campo `ts` precisa ser ISO 8601 com fuso, ex.: `2026-09-09T14:22:31-03:00`. |
+| Dados não aparecem no PostgreSQL | Veja o formato da mensagem MQTT (passo 10) — o campo `ts` precisa ser ISO 8601 com fuso, ex.: `2026-09-09T14:22:31-03:00`. Confira também a aba Debug do Node-RED: se o evento aparecer como "inválido", o payload não bateu com o formato esperado. |
 | Nós ESP32 não conectam | Firewall do roteador isolando dispositivos, ou IP do broker errado no firmware. Teste com `mosquitto_sub` na Pi enquanto o nó tenta publicar. |
 | Painel não abre pelo endereço `.ts.net` depois de um reboot | `sudo tailscale serve status` (ou `funnel status`). Se estiver vazio, re-rode `sudo tailscale serve --bg 3000` — ou crie o serviço systemd da seção 16. |
 | `tailscale up` falha com "would exceed device/user limit" | Plano grátis: 3 usuários / 100 dispositivos. Remova nós antigos no admin console ou use compartilhamento de nó (seção 16, passo 3, Opção B). |
@@ -317,9 +331,14 @@ Teste de verdade: `sudo reboot`, espere 2 min, reconecte e rode `docker compose 
 ## 15. Segurança antes de usar "de verdade" (fora do TCC)
 
 - `mosquitto/config/mosquitto.conf`: trocar `allow_anonymous true` por `password_file`.
-- `docker-compose.yml`: no InfluxDB, `INFLUXDB_HTTP_AUTH_ENABLED=true` + usuário/senha.
+- PostgreSQL: já pede usuário/senha (`POSTGRES_PASSWORD` no `.env`) — só troque
+  o valor padrão de `.env.example` antes de qualquer uso real.
+- Node-RED: o editor em `:1880` não tem login por padrão. Habilite `adminAuth`
+  em `settings.js` antes de expor além da LAN de teste.
 - Grafana: senha forte no `.env`, cadastro e acesso anônimo desativados (já no `docker-compose.yml`).
-- Não exponha as portas 1883/3000 direto na internet — use o Tailscale (seção 16). Só o Grafana deve sair; MQTT e InfluxDB ficam só na LAN.
+- Não exponha as portas 1883/1880/3000 direto na internet — use o Tailscale
+  (seção 16). Só o Grafana deve sair; MQTT, Postgres e o editor do Node-RED
+  ficam só na LAN.
 
 ---
 
@@ -328,7 +347,8 @@ Teste de verdade: `sudo reboot`, espere 2 min, reconecte e rode `docker compose 
 Para os integrantes do grupo acessarem o painel **de fora da rede local**, sem
 mexer no roteador e mesmo com CGNAT da operadora. O Tailscale roda **no host da
 Pi** (não em container) e passa a alcançar a porta 3000 que o Docker já publica.
-**Só o Grafana é exposto** — Mosquitto (1883) e InfluxDB (8086) continuam só na LAN.
+**Só o Grafana é exposto** — Mosquitto (1883), PostgreSQL (5432) e o editor
+do Node-RED (1880) continuam só na LAN.
 
 Três modos, do mais privado para o mais aberto. Comece pelo 1/2 para o time; ligue
 o 3 só quando precisar do link público (avaliadores, pitch) e desligue depois.
@@ -409,7 +429,7 @@ sudo tailscale funnel --https=443 off
 
 > **Antes de ligar o Funnel:** senha forte no `.env` (o `docker-compose.yml` já
 > desliga cadastro e acesso anônimo). Nunca rode `funnel`/`serve` apontando para
-> 8086 (InfluxDB) ou 1883 (MQTT).
+> 5432 (PostgreSQL), 1880 (Node-RED) ou 1883 (MQTT).
 
 ### 16.6. Sobreviver ao reboot
 

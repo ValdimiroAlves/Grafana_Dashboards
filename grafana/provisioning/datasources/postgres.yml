@@ -1,0 +1,23 @@
+apiVersion: 1
+
+datasources:
+  - name: PostgreSQL-SAAP
+    uid: saap-postgres
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    database: saap
+    user: saap
+    isDefault: true
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1600
+      timescaledb: false
+      maxOpenConns: 10
+      maxIdleConns: 10
+      connMaxLifetime: 14400
+    secureJsonData:
+      # $POSTGRES_PASSWORD (sem chaves) para não sofrer dupla expansão caso a
+      # senha tenha um "$". O valor vem do ambiente do container do Grafana,
+      # setado no docker-compose.yml a partir do .env.
+      password: $POSTGRES_PASSWORD

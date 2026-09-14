@@ -1,9 +1,9 @@
 # SAAP - servidor de chão de fábrica
-# Pipeline: ESP32 --MQTT--> Mosquitto --> Telegraf --> InfluxDB --> Grafana
+# Pipeline: ESP32 --MQTT--> Mosquitto --> Node-RED --> PostgreSQL --> Grafana
 #
 # Subir:   docker compose up -d
 # Parar:   docker compose down
-# Logs:    docker compose logs -f telegraf
+# Logs:    docker compose logs -f node-red
 
 services:
   mosquitto:
@@ -16,24 +16,32 @@ services:
       - mosquitto_data:/mosquitto/data
     restart: unless-stopped
 
-  influxdb:
-    image: influxdb:1.8
-    container_name: saap-influxdb
+  postgres:
+    image: postgres:16.15-alpine
+    container_name: saap-postgres
     environment:
-      - INFLUXDB_DB=saap
-      - INFLUXDB_HTTP_AUTH_ENABLED=false   # dev: sem senha. Em produção, habilitar.
+      - POSTGRES_DB=saap
+      - POSTGRES_USER=saap
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-troque-esta-senha}
     volumes:
-      - influxdb_data:/var/lib/influxdb
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro   # só roda no 1º boot (volume vazio)
+      - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
-  telegraf:
-    image: telegraf:1.30
-    container_name: saap-telegraf
+  node-red:
+    build:
+      context: ./node-red
+    container_name: saap-node-red
+    environment:
+      - TZ=America/Sao_Paulo
+    ports:
+      - "1880:1880"        # editor Node-RED — mesma ressalva do Mosquitto/Postgres: só LAN
     volumes:
-      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+      - node_red_data:/data                      # estado do Node-RED (node_modules, credenciais)
+      - ./node-red/flows.json:/data/flows.json    # o fluxo em si: editável e versionado, igual ao dashboard do Grafana
     depends_on:
       - mosquitto
-      - influxdb
+      - postgres
     restart: unless-stopped
 
   grafana:
@@ -51,6 +59,9 @@ services:
       - GF_ANALYTICS_CHECK_FOR_UPDATES=false
       - GF_USERS_ALLOW_SIGN_UP=false         # ninguém cria conta sozinho
       - GF_AUTH_ANONYMOUS_ENABLED=false      # sem acesso anônimo
+      # Lido pelo provisionamento do datasource (grafana/provisioning/datasources/postgres.yml),
+      # que expande $POSTGRES_PASSWORD — não duplique a senha lá.
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-troque-esta-senha}
       # Acesso remoto via Tailscale serve/funnel (ver INSTALL-raspberrypi.md, seção 16):
       # descomente e troque SEU-TAILNET pelo nome real quando usar serve/funnel.
       # - GF_SERVER_ROOT_URL=https://cara.SEU-TAILNET.ts.net/
@@ -60,10 +71,11 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
     depends_on:
-      - influxdb
+      - postgres
     restart: unless-stopped
 
 volumes:
   mosquitto_data:
-  influxdb_data:
+  postgres_data:
+  node_red_data:
   grafana_data:

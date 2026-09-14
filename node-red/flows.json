@@ -1,0 +1,170 @@
+[
+    {
+        "id": "flow-saap",
+        "type": "tab",
+        "label": "SAAP - ingestao de producao",
+        "disabled": false,
+        "info": "Recebe os eventos de contagem publicados pelos nos de bancada via MQTT, valida o formato e grava no PostgreSQL. Ver README.md na raiz do repositorio para o desenho completo do pipeline.",
+        "env": []
+    },
+    {
+        "id": "n-comment",
+        "type": "comment",
+        "z": "flow-saap",
+        "name": "MQTT -> valida -> Postgres (RF02/RF03)",
+        "info": "topico: fabrica/<setor>/bancada/<id>/evento\n\nA config \"PostgreSQL - SAAP\" fica com a senha em branco na primeira subida:\nabra o node \"Gravar evento\", edite a config e digite a senha do .env uma vez,\nclique Deploy. O Node-RED guarda isso criptografado em flows_cred.json\n(nunca em texto puro neste flows.json).",
+        "x": 190,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "n-mqtt-in",
+        "type": "mqtt in",
+        "z": "flow-saap",
+        "name": "eventos de producao",
+        "topic": "fabrica/+/bancada/+/evento",
+        "qos": "1",
+        "datatype": "json",
+        "broker": "cfg-mqtt-broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 180,
+        "y": 160,
+        "wires": [
+            [
+                "n-validate"
+            ]
+        ]
+    },
+    {
+        "id": "n-validate",
+        "type": "function",
+        "z": "flow-saap",
+        "name": "Validar e preparar evento (RF01/RF02)",
+        "func": "var p = msg.payload;\nif (typeof p === 'string') {\n    try { p = JSON.parse(p); } catch (e) { p = null; }\n}\nif (!p || typeof p !== 'object') {\n    msg.payload = { erro: 'payload nao e um objeto JSON valido', bruto: msg.payload, topic: msg.topic };\n    return [null, msg];\n}\n\nvar bancada = p.bancada;\nif (typeof bancada !== 'string' || bancada.length === 0 || bancada.length > 32) {\n    msg.payload = { erro: 'campo \"bancada\" ausente ou invalido', evento: p, topic: msg.topic };\n    return [null, msg];\n}\n\nvar quando = p.ts ? new Date(p.ts) : null;\nif (!quando || isNaN(quando.getTime())) {\n    msg.payload = { erro: 'campo \"ts\" ausente ou nao e uma data valida', evento: p, topic: msg.topic };\n    return [null, msg];\n}\n\nvar delta = Number(p.delta);\nif (!Number.isFinite(delta) || delta !== 1) {\n    // RF01: cada evento representa uma unica passagem valida.\n    // Nao descartamos por isso -- so avisamos e gravamos como 1.\n    node.warn('delta inesperado (' + p.delta + ') na bancada ' + bancada + '; gravando como 1');\n    delta = 1;\n}\n\nvar evtId = (typeof p.evt_id === 'string' && p.evt_id.length > 0) ? p.evt_id : null;\nvar origem = (typeof p.origem === 'string' && p.origem.length > 0) ? p.origem : null;\nvar totalTurno = Number.isFinite(Number(p.total_turno)) ? Math.trunc(Number(p.total_turno)) : null;\nvar totalHora = Number.isFinite(Number(p.total_hora)) ? Math.trunc(Number(p.total_hora)) : null;\n\n// Ordem dos parametros == ordem dos $1..$7 na query do node \"Gravar evento\".\nmsg.params = [bancada, evtId, quando.toISOString(), delta, origem, totalTurno, totalHora];\nreturn [msg, null];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 460,
+        "y": 160,
+        "wires": [
+            [
+                "n-insert"
+            ],
+            [
+                "n-invalid-debug"
+            ]
+        ]
+    },
+    {
+        "id": "n-insert",
+        "type": "postgresql",
+        "z": "flow-saap",
+        "name": "Gravar evento",
+        "query": "INSERT INTO producao (bancada, evt_id, ocorrido_em, delta, origem, total_turno, total_hora)\nVALUES ($1, $2, $3::timestamptz, $4, $5, $6, $7)\nON CONFLICT DO NOTHING\nRETURNING id;\n",
+        "postgreSQLConfig": "cfg-pg",
+        "split": false,
+        "rowsPerMsg": "1",
+        "outputs": 1,
+        "x": 750,
+        "y": 160,
+        "wires": [
+            [
+                "n-ok-debug"
+            ]
+        ]
+    },
+    {
+        "id": "n-ok-debug",
+        "type": "debug",
+        "z": "flow-saap",
+        "name": "evento gravado (vazio = duplicado, ignorado por RF03)",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "full",
+        "statusVal": "payload.length",
+        "statusType": "msg",
+        "x": 1010,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "n-invalid-debug",
+        "type": "debug",
+        "z": "flow-saap",
+        "name": "evento invalido (nao gravado)",
+        "active": true,
+        "tosidebar": true,
+        "console": true,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "full",
+        "statusVal": "payload.erro",
+        "statusType": "msg",
+        "x": 750,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "cfg-mqtt-broker",
+        "type": "mqtt-broker",
+        "name": "Mosquitto local",
+        "broker": "mosquitto",
+        "port": "1883",
+        "clientid": "node-red-saap",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "cfg-pg",
+        "type": "postgreSQLConfig",
+        "name": "saap@postgres:5432/saap",
+        "host": "postgres",
+        "hostFieldType": "str",
+        "port": "5432",
+        "portFieldType": "num",
+        "database": "saap",
+        "databaseFieldType": "str",
+        "ssl": "false",
+        "sslFieldType": "bool",
+        "max": "10",
+        "maxFieldType": "num",
+        "idle": "1000",
+        "idleFieldType": "num",
+        "connectionTimeout": "10000",
+        "connectionTimeoutFieldType": "num",
+        "user": "saap",
+        "userFieldType": "str",
+        "password": "",
+        "passwordFieldType": "str"
+    }
+]

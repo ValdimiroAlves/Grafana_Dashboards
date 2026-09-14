@@ -1,0 +1,9 @@
+# Segredos locais — nunca versionar.
+.env
+
+# Estado do Visual Studio / editor.
+.vs/
+
+# Python (simulador).
+__pycache__/
+*.pyc

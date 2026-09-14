@@ -2,7 +2,7 @@
 Simulador de bancadas do SAAP.
 
 Publica mensagens MQTT como se fossem nós de bancada reais, para testar
-Telegraf + InfluxDB + Grafana sem precisar do hardware.
+Node-RED + PostgreSQL + Grafana sem precisar do hardware.
 
 Uso:
     pip install paho-mqtt
@@ -21,8 +21,11 @@ import paho.mqtt.client as mqtt
 
 def agora_iso():
     # microssegundos: cada evento tem um timestamp único.
-    # Segundos inteiros fariam o InfluxDB sobrescrever 2 peças da mesma bancada
-    # que caíssem no mesmo segundo (chave = measurement+tags+time).
+    # Este simulador já envia evt_id, então a deduplicação forte por
+    # (bancada, evt_id) é quem manda (ver postgres/init/001_schema.sql).
+    # Mas o firmware real ainda não envia evt_id, caindo no índice por
+    # (bancada, ts) — aí sim, dois eventos com o mesmo segundo colidiriam
+    # e um seria descartado pelo ON CONFLICT DO NOTHING.
     return datetime.datetime.now(datetime.timezone.utc).astimezone().isoformat(timespec="microseconds")
 
 
