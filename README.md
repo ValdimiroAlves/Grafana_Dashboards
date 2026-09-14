@@ -175,6 +175,35 @@ Dois índices únicos em `producao` fazem o trabalho, e o Node-RED grava com
 > silenciosamente descartado. O RTC do nó dá só 1 s de resolução — o firmware
 > deve complementar com `millis()` (ou o `evt_id`) para o `ts` ficar único.
 
+### Turno
+
+"Turno" **não** é um requisito do documento (`tcc_a`) nem algo que o firmware
+do FlowCount envia — é calculado no banco a partir do horário real do evento
+(`ocorrido_em`), pela função `turno_do_horario()` em
+[`postgres/init/002_turno.sql`](postgres/init/002_turno.sql):
+
+| Turno | Horário (Brasília) |
+|---|---|
+| Turno 1 | 06h–14h |
+| Turno 2 | 14h–22h |
+| Turno 3 | 22h–06h |
+
+Só essa função precisa ser editada se os horários reais forem outros — todo o
+resto (painel, consultas futuras) consome ela, não repete a lógica.
+
+As colunas `total_turno`/`total_hora` do schema continuam existindo (o
+simulador ainda manda os dois), mas não são mais a fonte do painel "Peças por
+turno" — eram um contador que o próprio nó teria que zerar sozinho, e o
+firmware real nunca chegou a implementar isso.
+
+> **Instalação que já existe (a Pi, por exemplo):** os arquivos em
+> `postgres/init/` só rodam automaticamente na **primeira** inicialização do
+> volume do Postgres. Numa instalação que já estava de pé antes desta função
+> existir, aplique manualmente depois do `git pull`:
+> ```bash
+> docker exec -i saap-postgres psql -U saap -d saap < postgres/init/002_turno.sql
+> ```
+
 ## Painéis e consultas (SQL)
 
 O dashboard já traz estes painéis. As consultas usam `$__timeFilter(coluna)`
@@ -187,7 +216,7 @@ superior direito.
 | Peças no período — linha toda | Stat | `SELECT sum(delta) AS total FROM producao WHERE $__timeFilter(ocorrido_em)` |
 | Peças por bancada | Bar gauge | `SELECT bancada, sum(delta) AS total FROM producao WHERE $__timeFilter(ocorrido_em) GROUP BY bancada` |
 | Peças por hora | Time series (barras) | `SELECT $__timeGroup(ocorrido_em,'1h') AS time, bancada, sum(delta) AS value FROM producao WHERE $__timeFilter(ocorrido_em) GROUP BY 1, bancada` |
-| Total do turno por bancada | Tabela | último `total_turno` não nulo de cada bancada no período (`DISTINCT ON`) |
+| Peças por turno | Tabela | `SELECT turno_do_horario(ocorrido_em) AS turno, bancada, sum(delta) FROM producao WHERE $__timeFilter(ocorrido_em) GROUP BY turno, bancada` |
 | Peças por minuto | Time series (linha) | igual ao "por hora", agrupando em `$__timeGroup(ocorrido_em,'1m')` |
 | Última comunicação por bancada (RF04) | Tabela | `SELECT bancada, max(recebido_em) FROM producao GROUP BY bancada` — sempre olha o histórico inteiro, não só o período selecionado |
 
