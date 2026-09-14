@@ -31,6 +31,31 @@ Nó de bancada (ESP32)                    Servidor (Raspberry Pi 5 / PC)
 > [INSTALL-raspberrypi.md](INSTALL-raspberrypi.md) — cobre desde gravar o cartão
 > até os containers subindo sozinhos no boot.
 
+## Autenticação MQTT (RNF05 — fazer ANTES de subir)
+
+O `mosquitto.conf` já exige senha (`allow_anonymous false` + `password_file`).
+Sem o arquivo de senhas, o Mosquitto **não sobe** — então gere-o antes do
+primeiro `docker compose up`:
+
+```bash
+docker run --rm -v "$(pwd)/mosquitto/config:/mosquitto/config" eclipse-mosquitto:2 \
+  mosquitto_passwd -c -b /mosquitto/config/passwd flowcount "TROQUE-ESTA-SENHA"
+```
+
+- `-c` **cria um arquivo novo** (apaga o que existia) — use só na primeira vez.
+- Pra adicionar outro usuário depois sem apagar os existentes, repita o comando
+  **sem** `-c`.
+- `flowcount` é o usuário único usado pelos nós ESP32, pelo simulador e pelo
+  Node-RED — não há ACL por tópico nesta entrega (qualquer autenticado pode
+  publicar/assinar em qualquer tópico); separar por usuário/ACL fica como
+  melhoria futura.
+- `mosquitto/config/passwd` **não é versionado** (`.gitignore`) — mesmo com a
+  senha em hash, é segredo de implantação, igual ao `.env`.
+
+Anote a senha escolhida: ela entra em três lugares — no `menuconfig` de cada
+ESP32 (`FLOWCOUNT_MQTT_USERNAME`/`FLOWCOUNT_MQTT_PASSWORD`), no simulador
+(`--mqtt-user`/`--mqtt-password`) e no Node-RED (passo abaixo).
+
 ## Subir
 
 ```bash
@@ -40,13 +65,21 @@ docker compose up -d --build               # --build: a 1ª vez compila a imagem
 docker compose ps           # todos "running"
 ```
 
-Na primeira subida, abra o editor do Node-RED em `http://localhost:1880`,
-clique duas vezes no node **"Gravar evento"** → editar a config **"PostgreSQL"**
-→ preencha o campo **Password** com o valor de `POSTGRES_PASSWORD` do seu `.env`
-→ **Update** → **Deploy** (botão vermelho no canto superior direito). Isso só
-precisa ser feito uma vez: o Node-RED guarda a senha criptografada em
-`flows_cred.json`, dentro do volume `node_red_data` — **nunca** em texto puro
-no `flows.json` versionado.
+Na primeira subida, abra o editor do Node-RED em `http://localhost:1880` e
+configure as duas credenciais que ficam em branco no `flows.json` versionado:
+
+1. Clique duas vezes no node **"eventos de produção"** (o de entrada, ícone de
+   MQTT) → editar a config **"Mosquitto local"** → aba **Security** → usuário
+   `flowcount` e a senha que você gerou acima → **Update**.
+2. Clique duas vezes no node **"Gravar evento"** → editar a config
+   **"PostgreSQL"** → campo **Password** → o valor de `POSTGRES_PASSWORD` do
+   `.env` → **Update**.
+3. **Deploy** (botão vermelho no canto superior direito) — só depois de mexer
+   nas duas.
+
+Isso só precisa ser feito uma vez por instalação: o Node-RED guarda as duas
+senhas criptografadas em `flows_cred.json`, dentro do volume `node_red_data`
+— **nunca** em texto puro no `flows.json` versionado.
 
 Abra o painel: <http://localhost:3000> (usuário `admin`, senha do `.env`).
 O data source **PostgreSQL-SAAP** e o dashboard **SAAP — Produção em tempo real**
@@ -65,7 +98,7 @@ Node-RED ficam só na LAN.
 
 ```bash
 pip install paho-mqtt
-python simulador/simula_bancadas.py
+python simulador/simula_bancadas.py --mqtt-user flowcount --mqtt-password "TROQUE-ESTA-SENHA"
 # em ~30 s os painéis do Grafana começam a se mexer
 ```
 
@@ -85,7 +118,8 @@ python simulador/simula_bancadas.py --micro-parada B02
 Publicar um evento avulso na mão:
 
 ```bash
-mosquitto_pub -h localhost -t "fabrica/setorA/bancada/B01/evento" \
+mosquitto_pub -h localhost -u flowcount -P "TROQUE-ESTA-SENHA" \
+  -t "fabrica/setorA/bancada/B01/evento" \
   -m '{"bancada":"B01","evt_id":"B01-000001","ts":"2026-09-09T14:30:00.123456-03:00","delta":1,"total_turno":1,"total_hora":1,"origem":"sensor"}'
 ```
 
@@ -213,7 +247,9 @@ docker compose restart node-red
 
 ## Segurança (antes de usar de verdade)
 
-- `mosquitto.conf`: trocar `allow_anonymous true` por `password_file`.
+- Mosquitto: já exige senha (`password_file`) — falta só TLS, se for expor além
+  da LAN de teste. Também não há ACL por tópico: qualquer usuário autenticado
+  publica/assina em qualquer tópico.
 - PostgreSQL: já exige usuário/senha (`POSTGRES_PASSWORD` no `.env`) — só
   troque o valor padrão de `.env.example` antes de qualquer uso real.
 - Node-RED: o editor em `:1880` **não tem login por padrão**. Antes de expor

@@ -186,7 +186,20 @@ cd ~/saap-servidor
 ```bash
 cp .env.example .env
 nano .env            # troque GRAFANA_PASSWORD e POSTGRES_PASSWORD; Ctrl+O, Enter, Ctrl+X
+```
 
+O Mosquitto exige senha (RNF05) e **não sobe sem o arquivo de senhas** — gere
+antes de continuar (`-c` cria o arquivo, só use na primeira vez):
+
+```bash
+docker run --rm -v "$(pwd)/mosquitto/config:/mosquitto/config" eclipse-mosquitto:2 \
+  mosquitto_passwd -c -b /mosquitto/config/passwd flowcount "TROQUE-ESTA-SENHA"
+```
+
+Anote a senha — ela vai entrar também no `menuconfig` de cada ESP32
+(`FLOWCOUNT_MQTT_USERNAME`/`FLOWCOUNT_MQTT_PASSWORD`) e no Node-RED (mais abaixo).
+
+```bash
 # IMPORTANTE: o Grafana roda como uid 472 dentro do container e precisa
 # de permissão de leitura nas pastas de configuração copiadas para a Pi.
 chmod -R a+rX grafana mosquitto postgres
@@ -208,11 +221,18 @@ docker compose logs -f node-red
 # deve conectar em mosquitto:1883 e em postgres:5432 sem erro
 ```
 
-Depois, abra `http://saap.local:1880` (ou `http://<ip-da-pi>:1880`), entre no
-node **"Gravar evento"** → editar a config **"PostgreSQL"** → digite a senha
-de `POSTGRES_PASSWORD` no campo Password → **Update** → **Deploy** (botão
-vermelho, canto superior direito). Só precisa fazer isso uma vez por
-instalação — fica salvo, criptografado, no volume `node_red_data`.
+Depois, abra `http://saap.local:1880` (ou `http://<ip-da-pi>:1880`) e
+configure as duas credenciais que ficam em branco no `flows.json`:
+
+1. Node **"eventos de produção"** → editar config **"Mosquitto local"** →
+   aba **Security** → usuário `flowcount` + a senha gerada acima → **Update**.
+2. Node **"Gravar evento"** → editar config **"PostgreSQL"** → campo
+   Password → a senha de `POSTGRES_PASSWORD` → **Update**.
+3. **implementar** (botão vermelho, canto superior direito) — só depois de
+   mexer nas duas.
+
+Só precisa fazer isso uma vez por instalação — o Node-RED guarda as duas
+senhas criptografadas no volume `node_red_data`.
 
 ---
 
@@ -237,7 +257,8 @@ Na Pi:
 
 ```bash
 sudo apt install -y python3-paho-mqtt
-python3 ~/saap-servidor/simulador/simula_bancadas.py --broker localhost
+python3 ~/saap-servidor/simulador/simula_bancadas.py --broker localhost \
+  --mqtt-user flowcount --mqtt-password "TROQUE-ESTA-SENHA"
 ```
 
 Em ~30 s os painéis do Grafana começam a se mover. `Ctrl+C` para parar.
@@ -245,7 +266,7 @@ Em ~30 s os painéis do Grafana começam a se mover. `Ctrl+C` para parar.
 Ver as mensagens cruas chegando no broker:
 
 ```bash
-mosquitto_sub -h localhost -t 'fabrica/#' -v
+mosquitto_sub -h localhost -u flowcount -P "TROQUE-ESTA-SENHA" -t 'fabrica/#' -v
 ```
 
 Ver os dados já gravados no banco:
@@ -271,7 +292,8 @@ Teste a publicação de um nó a partir do PC antes de mexer no firmware:
 
 ```powershell
 # instale o mosquitto no Windows ou rode o simulador apontando para a Pi:
-python .\servidor\simulador\simula_bancadas.py --broker 192.168.1.50
+python .\servidor\simulador\simula_bancadas.py --broker 192.168.1.50 `
+  --mqtt-user flowcount --mqtt-password "TROQUE-ESTA-SENHA"
 ```
 
 ---
@@ -327,7 +349,9 @@ Teste de verdade: `sudo reboot`, espere 2 min, reconecte e rode `docker compose 
 
 ## 15. Segurança antes de usar "de verdade" (fora do TCC)
 
-- `mosquitto/config/mosquitto.conf`: trocar `allow_anonymous true` por `password_file`.
+- Mosquitto: já pede senha (`password_file`, passo 8) — falta só TLS antes de
+  expor além da LAN, e não há ACL por tópico (qualquer autenticado publica ou
+  assina em qualquer tópico).
 - PostgreSQL: já pede usuário/senha (`POSTGRES_PASSWORD` no `.env`) — só troque
   o valor padrão de `.env.example` antes de qualquer uso real.
 - Node-RED: o editor em `:1880` não tem login por padrão. Habilite `adminAuth`
@@ -465,4 +489,4 @@ sudo systemctl enable --now ts-serve.service
    (o Funnel deve abrir até num aparelho **sem** Tailscale).
 4. `sudo reboot` na Pi; após ~2 min, repetir o passo 2 sem tocar em nada.
 5. Rodar o simulador na Pi e ver os painéis se moverem pela URL remota:
-   `python3 ~/servidor/simulador/simula_bancadas.py --broker localhost`.
+   `python3 ~/servidor/simulador/simula_bancadas.py --broker localhost --mqtt-user flowcount --mqtt-password "TROQUE-ESTA-SENHA"`.

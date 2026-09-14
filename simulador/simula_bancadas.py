@@ -9,10 +9,17 @@ Uso:
     python simula_bancadas.py                 # 3 bancadas, ritmo acelerado
     python simula_bancadas.py --broker localhost --bancadas B01 B02 B03 B04
     python simula_bancadas.py --micro-parada B02   # B02 para de produzir após 60 s
+
+    # Desde que o Mosquitto exige autenticação (RNF05), informe as credenciais
+    # geradas em mosquitto/config/passwd (ver README.md):
+    python simula_bancadas.py --mqtt-user flowcount --mqtt-password "SENHA-AQUI"
+    # ou por variável de ambiente, pra não deixar a senha no histórico do shell:
+    MQTT_USER=flowcount MQTT_PASSWORD="SENHA-AQUI" python simula_bancadas.py
 """
 import argparse
 import datetime
 import json
+import os
 import random
 import time
 
@@ -39,9 +46,16 @@ def main():
                     help="segundos médios entre peças (todas as bancadas juntas)")
     ap.add_argument("--micro-parada", default=None,
                     help="id de bancada que deixa de produzir após 60 s")
+    ap.add_argument("--mqtt-user", default=os.environ.get("MQTT_USER"),
+                    help="usuário MQTT (ou variável de ambiente MQTT_USER). "
+                         "Necessário desde que o Mosquitto exige autenticação (RNF05).")
+    ap.add_argument("--mqtt-password", default=os.environ.get("MQTT_PASSWORD"),
+                    help="senha MQTT (ou variável de ambiente MQTT_PASSWORD)")
     args = ap.parse_args()
 
     cli = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="simulador-saap")
+    if args.mqtt_user:
+        cli.username_pw_set(args.mqtt_user, args.mqtt_password)
     cli.connect(args.broker, args.port, 60)
     cli.loop_start()
 

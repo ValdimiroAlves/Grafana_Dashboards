@@ -1,5 +1,6 @@
 # Segredos locais — nunca versionar.
 .env
+mosquitto/config/passwd
 
 # Estado do Visual Studio / editor.
 .vs/
