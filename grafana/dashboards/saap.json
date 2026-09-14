@@ -7,7 +7,7 @@
   "schemaVersion": 39,
   "version": 3,
   "editable": true,
-  "refresh": "5s",
+  "refresh": "1s",
   "time": { "from": "now-12h", "to": "now" },
   "templating": { "list": [] },
   "annotations": { "list": [] },
