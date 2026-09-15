@@ -1,0 +1,151 @@
+{
+  "uid": "saap-producao",
+  "title": "SAAP — 🏭 Produção",
+  "tags": ["saap", "producao", "operador"],
+  "style": "dark",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "1s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "links": [
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": false, "tags": [], "targetBlank": false, "title": "📊 Visão geral", "tooltip": "", "type": "link", "url": "/d/saap-main/saap-producao-em-tempo-real" },
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": false, "tags": [], "targetBlank": false, "title": "🔧 Diagnóstico", "tooltip": "", "type": "link", "url": "/d/saap-diagnostico/saap-diagnostico" },
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": false, "tags": [], "targetBlank": false, "title": "📈 Histórico / Gestão", "tooltip": "", "type": "link", "url": "/d/saap-historico/saap-historico" },
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": false, "tags": [], "targetBlank": false, "title": "🖥️ Sistema", "tooltip": "", "type": "link", "url": "/d/saap-sistema/saap-sistema" }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "",
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": {
+        "mode": "markdown",
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "# 🏭 Produção\n##### Acompanhamento da linha — operador / técnico"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Produção no período",
+      "description": "Soma de peças no intervalo selecionado, com tendência por janelas de 15 min.",
+      "gridPos": { "h": 7, "w": 6, "x": 0, "y": 3 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroup(ocorrido_em, '15m') AS time, sum(delta) AS value\nFROM producao\nWHERE $__timeFilter(ocorrido_em)\nGROUP BY 1\nORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "peças", "color": { "mode": "fixed", "fixedColor": "#3987e5" } },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Status da linha",
+      "description": "Quantas estações estão sem comunicação há mais de 5 minutos. 0 = tudo funcionando.",
+      "gridPos": { "h": 7, "w": 6, "x": 6, "y": 3 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "table",
+          "rawSql": "SELECT count(*) AS silenciosas\nFROM (\n  SELECT bancada, max(recebido_em) AS ultima\n  FROM producao\n  GROUP BY bancada\n) t\nWHERE ultima < now() - interval '5 minutes'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "#0ca30c", "value": null }, { "color": "#d03b3b", "value": 1 } ] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 4,
+      "type": "bargauge",
+      "title": "Meta por esteira — período",
+      "description": "Vermelho = abaixo de 40 peças; laranja = entre 40 e 80; verde = 80 ou mais. Ajuste os degraus conforme a meta real.",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 3 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "table",
+          "rawSql": "SELECT bancada, sum(delta) AS total\nFROM producao\nWHERE $__timeFilter(ocorrido_em)\nGROUP BY bancada\nORDER BY bancada"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "peças",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "#d03b3b", "value": null }, { "color": "#fab219", "value": 40 }, { "color": "#0ca30c", "value": 80 } ] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "showUnfilled": true
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Ritmo atual (peças por minuto)",
+      "description": "Cor fixa por esteira — B01 azul, B02 laranja, B03 verde-água, B04 amarelo. Queda a zero por vários minutos indica micro-parada.",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 10 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroup(ocorrido_em, '1m') AS time, bancada, sum(delta) AS value\nFROM producao\nWHERE $__timeFilter(ocorrido_em)\nGROUP BY 1, bancada\nORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "peças",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "spanNulls": false }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "B01" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } } ] },
+          { "matcher": { "id": "byName", "options": "B02" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d95926" } } ] },
+          { "matcher": { "id": "byName", "options": "B03" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } } ] },
+          { "matcher": { "id": "byName", "options": "B04" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "#c98500" } } ] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    }
+  ]
+}

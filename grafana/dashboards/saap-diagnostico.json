@@ -1,0 +1,161 @@
+{
+  "uid": "saap-diagnostico",
+  "title": "SAAP — 🔧 Diagnóstico",
+  "tags": ["saap", "diagnostico", "manutencao"],
+  "style": "dark",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "5s",
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "links": [
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": false, "tags": [], "targetBlank": false, "title": "📊 Visão geral", "tooltip": "", "type": "link", "url": "/d/saap-main/saap-producao-em-tempo-real" },
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": false, "tags": [], "targetBlank": false, "title": "🏭 Produção", "tooltip": "", "type": "link", "url": "/d/saap-producao/saap-producao" },
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": false, "tags": [], "targetBlank": false, "title": "🖥️ Sistema", "tooltip": "", "type": "link", "url": "/d/saap-sistema/saap-sistema" },
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": false, "tags": [], "targetBlank": false, "title": "📈 Histórico / Gestão", "tooltip": "", "type": "link", "url": "/d/saap-historico/saap-historico" }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "",
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": {
+        "mode": "markdown",
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "# 🔧 Diagnóstico\n##### Sensor, comunicação e quedas — equipe de manutenção"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Estações sem comunicação agora",
+      "description": "Mais de 5 minutos sem nenhum evento. 0 = tudo normal.",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 3 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "table",
+          "rawSql": "SELECT count(*) AS silenciosas\nFROM (\n  SELECT bancada, max(recebido_em) AS ultima\n  FROM producao\n  GROUP BY bancada\n) t\nWHERE ultima < now() - interval '5 minutes'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "#0ca30c", "value": null }, { "color": "#d03b3b", "value": 1 } ] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Clientes MQTT conectados",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 3 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "time_series",
+          "rawSql": "SELECT capturado_em AS time, clientes_conectados AS value\nFROM broker_stats\nORDER BY capturado_em DESC\nLIMIT 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "#3987e5" } },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 4,
+      "type": "text",
+      "title": "",
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 3 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": {
+        "mode": "markdown",
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "**Sensor bloqueado (RF05):** o firmware já detecta essa condição localmente (log serial), mas ainda não publica isso por MQTT — por isso não tem painel aqui ainda. É item pendente do lado do firmware, não do servidor."
+      }
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Horário da última comunicação por estação",
+      "description": "Sempre olha o histórico inteiro, não só o período selecionado. Verde até 1 min, laranja até 5 min, vermelho acima disso.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "table",
+          "rawSql": "SELECT bancada, max(recebido_em) AS ultima_comunicacao,\n       EXTRACT(EPOCH FROM (now() - max(recebido_em))) AS segundos_desde\nFROM producao\nGROUP BY bancada\nORDER BY bancada"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "bancada" }, "properties": [ { "id": "displayName", "value": "estação" } ] },
+          { "matcher": { "id": "byName", "options": "ultima_comunicacao" }, "properties": [ { "id": "unit", "value": "dateTimeFromNow" }, { "id": "displayName", "value": "última comunicação" } ] },
+          {
+            "matcher": { "id": "byName", "options": "segundos_desde" },
+            "properties": [
+              { "id": "displayName", "value": "status" },
+              { "id": "unit", "value": "s" },
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } },
+              { "id": "color", "value": { "mode": "thresholds" } },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "#0ca30c", "value": null }, { "color": "#fab219", "value": 60 }, { "color": "#d03b3b", "value": 300 } ] } }
+            ]
+          }
+        ]
+      },
+      "options": { "showHeader": true }
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Quedas de comunicação detectadas",
+      "description": "Gaps de mais de 2 minutos entre eventos consecutivos da mesma estação, dentro do período selecionado — indício de queda de rede/Wi-Fi, não confirmação (poderia ser a linha realmente parada).",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "table",
+          "rawSql": "WITH ordenado AS (\n  SELECT bancada, ocorrido_em,\n         LAG(ocorrido_em) OVER (PARTITION BY bancada ORDER BY ocorrido_em) AS anterior\n  FROM producao\n  WHERE $__timeFilter(ocorrido_em)\n)\nSELECT bancada, anterior AS de, ocorrido_em AS ate,\n       EXTRACT(EPOCH FROM (ocorrido_em - anterior)) AS duracao_segundos\nFROM ordenado\nWHERE anterior IS NOT NULL\n  AND ocorrido_em - anterior > interval '2 minutes'\nORDER BY ocorrido_em DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "bancada" }, "properties": [ { "id": "displayName", "value": "estação" } ] },
+          { "matcher": { "id": "byName", "options": "duracao_segundos" }, "properties": [ { "id": "unit", "value": "s" }, { "id": "displayName", "value": "duração" } ] }
+        ]
+      },
+      "options": { "showHeader": true }
+    }
+  ]
+}

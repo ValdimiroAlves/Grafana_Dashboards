@@ -15,12 +15,12 @@
 # pela UI de volta pro Git, copie o arquivo de dentro do container primeiro
 # (ver README.md), igual já é feito com o dashboard do Grafana.
 #
-# Consequência: se você editar node-red/flows.json no repo e reconstruir a
-# imagem, isso NÃO atualiza um volume que já existe (ele já foi semeado uma
-# vez). Pra aplicar uma mudança do repo a uma instalação já rodando, copie o
-# arquivo pra dentro do container (docker cp) ou recrie o volume do zero
-# (docker compose down -v — cuidado, isso também apaga o node_modules
-# instalado e a senha do Postgres salva em flows_cred.json).
+# Consequência: se você editar node-red/flows.json OU node-red/settings.js no
+# repo e reconstruir a imagem, isso NÃO atualiza um volume que já existe (ele
+# já foi semeado uma vez). Pra aplicar uma mudança do repo a uma instalação já
+# rodando, copie o arquivo pra dentro do container (docker cp) ou recrie o
+# volume do zero (docker compose down -v — cuidado, isso também apaga o
+# node_modules instalado e a senha do Postgres salva em flows_cred.json).
 FROM nodered/node-red:5.0.7
 
 # NÃO usar "WORKDIR /data" aqui: a imagem base define WORKDIR /usr/src/node-red
@@ -30,6 +30,7 @@ FROM nodered/node-red:5.0.7
 # "cd /data && ..." dentro do RUN, sem alterar o WORKDIR da imagem.
 USER root
 COPY flows.json /data/flows.json
+COPY settings.js /data/settings.js
 RUN cd /data \
     && npm install --omit=dev node-red-contrib-postgresql@0.16.2 \
     && chown -R node-red:node-red /data

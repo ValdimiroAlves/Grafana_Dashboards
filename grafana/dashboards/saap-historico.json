@@ -1,0 +1,156 @@
+{
+  "uid": "saap-historico",
+  "title": "SAAP — 📈 Histórico / Gestão",
+  "tags": ["saap", "historico", "gestao"],
+  "style": "dark",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "30s",
+  "time": { "from": "now-7d", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "links": [
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": false, "tags": [], "targetBlank": false, "title": "📊 Visão geral", "tooltip": "", "type": "link", "url": "/d/saap-main/saap-producao-em-tempo-real" },
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": false, "tags": [], "targetBlank": false, "title": "🏭 Produção", "tooltip": "", "type": "link", "url": "/d/saap-producao/saap-producao" },
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": false, "tags": [], "targetBlank": false, "title": "🔧 Diagnóstico", "tooltip": "", "type": "link", "url": "/d/saap-diagnostico/saap-diagnostico" },
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": false, "tags": [], "targetBlank": false, "title": "🖥️ Sistema", "tooltip": "", "type": "link", "url": "/d/saap-sistema/saap-sistema" }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "",
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": {
+        "mode": "markdown",
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "# 📈 Histórico / Gestão\n##### Produção por período e comparação entre esteiras — supervisor / gestor"
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Produção por dia",
+      "description": "Cor fixa por esteira, igual às outras telas.",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 3 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroup(ocorrido_em, '1d') AS time, bancada, sum(delta) AS value\nFROM producao\nWHERE $__timeFilter(ocorrido_em)\nGROUP BY 1, bancada\nORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "peças",
+          "custom": { "drawStyle": "bars", "fillOpacity": 70, "lineWidth": 1, "stacking": { "mode": "normal", "group": "A" } }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "B01" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } } ] },
+          { "matcher": { "id": "byName", "options": "B02" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d95926" } } ] },
+          { "matcher": { "id": "byName", "options": "B03" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } } ] },
+          { "matcher": { "id": "byName", "options": "B04" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "#c98500" } } ] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Produção por hora",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroup(ocorrido_em, '1h') AS time, bancada, sum(delta) AS value\nFROM producao\nWHERE $__timeFilter(ocorrido_em)\nGROUP BY 1, bancada\nORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "peças",
+          "custom": { "drawStyle": "bars", "fillOpacity": 70, "lineWidth": 1, "stacking": { "mode": "normal", "group": "A" } }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "B01" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } } ] },
+          { "matcher": { "id": "byName", "options": "B02" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d95926" } } ] },
+          { "matcher": { "id": "byName", "options": "B03" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } } ] },
+          { "matcher": { "id": "byName", "options": "B04" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "#c98500" } } ] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 4,
+      "type": "bargauge",
+      "title": "Comparação entre esteiras — período",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "table",
+          "rawSql": "SELECT bancada, sum(delta) AS total\nFROM producao\nWHERE $__timeFilter(ocorrido_em)\nGROUP BY bancada\nORDER BY bancada"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "peças",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "#d03b3b", "value": null }, { "color": "#fab219", "value": 40 }, { "color": "#0ca30c", "value": 80 } ] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "showUnfilled": true
+      }
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Peças por turno",
+      "description": "Turno 1 06h-14h / Turno 2 14h-22h / Turno 3 22h-06h (horário de Brasília) — ver turno_do_horario() em postgres/init/002_turno.sql.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "table",
+          "rawSql": "SELECT turno_do_horario(ocorrido_em) AS turno, bancada, sum(delta) AS total\nFROM producao\nWHERE $__timeFilter(ocorrido_em)\nGROUP BY turno, bancada\nORDER BY turno, bancada"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "total" }, "properties": [ { "id": "unit", "value": "peças" } ] },
+          { "matcher": { "id": "byName", "options": "bancada" }, "properties": [ { "id": "displayName", "value": "estação" } ] }
+        ]
+      },
+      "options": { "showHeader": true }
+    },
+    {
+      "id": 6,
+      "type": "text",
+      "title": "",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": {
+        "mode": "markdown",
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "**Comparação por operador:** não implementada nesta entrega. Hoje o sistema não sabe quem está em cada esteira — não existe nenhum mecanismo de identificação/login de operador no FlowCount. Adicionar isso exigiria um jeito de registrar \"quem está na bancada X agora\" (manual ou por crachá/RFID), o que é um novo componente do sistema, não uma consulta a mais no banco atual."
+      }
+    }
+  ]
+}

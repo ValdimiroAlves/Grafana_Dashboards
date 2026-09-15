@@ -5,12 +5,18 @@
   "style": "dark",
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 3,
+  "version": 4,
   "editable": true,
   "refresh": "1s",
   "time": { "from": "now-12h", "to": "now" },
   "templating": { "list": [] },
   "annotations": { "list": [] },
+  "links": [
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": false, "tags": [], "targetBlank": false, "title": "🏭 Produção", "tooltip": "", "type": "link", "url": "/d/saap-producao/saap-producao" },
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": false, "tags": [], "targetBlank": false, "title": "🔧 Diagnóstico", "tooltip": "", "type": "link", "url": "/d/saap-diagnostico/saap-diagnostico" },
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": false, "tags": [], "targetBlank": false, "title": "📈 Histórico / Gestão", "tooltip": "", "type": "link", "url": "/d/saap-historico/saap-historico" },
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": false, "tags": [], "targetBlank": false, "title": "🖥️ Sistema", "tooltip": "", "type": "link", "url": "/d/saap-sistema/saap-sistema" }
+  ],
   "panels": [
     {
       "id": 10,

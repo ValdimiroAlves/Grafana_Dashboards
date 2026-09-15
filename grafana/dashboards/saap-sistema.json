@@ -1,0 +1,282 @@
+{
+  "uid": "saap-sistema",
+  "title": "SAAP — 🖥️ Sistema",
+  "tags": ["saap", "sistema", "ti"],
+  "style": "dark",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "15s",
+  "time": { "from": "now-3h", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "links": [
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": false, "tags": [], "targetBlank": false, "title": "📊 Visão geral", "tooltip": "", "type": "link", "url": "/d/saap-main/saap-producao-em-tempo-real" },
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": false, "tags": [], "targetBlank": false, "title": "🏭 Produção", "tooltip": "", "type": "link", "url": "/d/saap-producao/saap-producao" },
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": false, "tags": [], "targetBlank": false, "title": "🔧 Diagnóstico", "tooltip": "", "type": "link", "url": "/d/saap-diagnostico/saap-diagnostico" },
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": false, "tags": [], "targetBlank": false, "title": "📈 Histórico / Gestão", "tooltip": "", "type": "link", "url": "/d/saap-historico/saap-historico" }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "",
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": {
+        "mode": "markdown",
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "# 🖥️ Sistema\n##### Saúde do servidor (Raspberry Pi) e do broker MQTT — equipe técnica"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Temperatura da CPU",
+      "description": "Lida de /sys/class/thermal na Raspberry real (requer pid: host no docker-compose.yml).",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 3 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "time_series",
+          "rawSql": "SELECT capturado_em AS time, temperatura_c AS value\nFROM sistema_metricas\nWHERE $__timeFilter(capturado_em)\nORDER BY capturado_em"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "#0ca30c", "value": null }, { "color": "#fab219", "value": 60 }, { "color": "#d03b3b", "value": 75 } ] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Carga de CPU (1 min)",
+      "description": "os.loadavg()[0]. Numa Pi 5 (4 núcleos), acima de 4 significa mais trabalho do que núcleos disponíveis.",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 3 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "time_series",
+          "rawSql": "SELECT capturado_em AS time, carga_cpu_1min AS value\nFROM sistema_metricas\nWHERE $__timeFilter(capturado_em)\nORDER BY capturado_em"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "#0ca30c", "value": null }, { "color": "#fab219", "value": 2 }, { "color": "#d03b3b", "value": 4 } ] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Uso de memória",
+      "description": "(total - livre) / total, da Raspberry real.",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 3 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "time_series",
+          "rawSql": "SELECT capturado_em AS time, memoria_uso_pct AS value\nFROM sistema_metricas\nWHERE $__timeFilter(capturado_em)\nORDER BY capturado_em"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "#0ca30c", "value": null }, { "color": "#fab219", "value": 70 }, { "color": "#d03b3b", "value": 90 } ] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Clientes MQTT conectados",
+      "description": "Tópico $SYS/broker/clients/connected do próprio Mosquitto.",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 3 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "time_series",
+          "rawSql": "SELECT capturado_em AS time, clientes_conectados AS value\nFROM broker_stats\nWHERE $__timeFilter(capturado_em)\nORDER BY capturado_em"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "#3987e5" } },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Temperatura ao longo do tempo",
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 9 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "time_series",
+          "rawSql": "SELECT capturado_em AS time, temperatura_c AS value\nFROM sistema_metricas\nWHERE $__timeFilter(capturado_em)\nORDER BY capturado_em"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "celsius", "color": { "mode": "fixed", "fixedColor": "#d03b3b" }, "custom": { "drawStyle": "line", "fillOpacity": 15, "lineWidth": 2 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "none" }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Carga de CPU ao longo do tempo",
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 9 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "time_series",
+          "rawSql": "SELECT capturado_em AS time, carga_cpu_1min AS value\nFROM sistema_metricas\nWHERE $__timeFilter(capturado_em)\nORDER BY capturado_em"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "#fab219" }, "custom": { "drawStyle": "line", "fillOpacity": 15, "lineWidth": 2 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "none" }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Memória ao longo do tempo",
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 9 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "time_series",
+          "rawSql": "SELECT capturado_em AS time, memoria_uso_pct AS value\nFROM sistema_metricas\nWHERE $__timeFilter(capturado_em)\nORDER BY capturado_em"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "min": 0, "max": 100, "color": { "mode": "fixed", "fixedColor": "#3987e5" }, "custom": { "drawStyle": "line", "fillOpacity": 15, "lineWidth": 2 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "none" }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Uptime do broker",
+      "description": "Tópico $SYS/broker/uptime.",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 16 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "time_series",
+          "rawSql": "SELECT capturado_em AS time, uptime_segundos AS value\nFROM broker_stats\nWHERE $__timeFilter(capturado_em)\nORDER BY capturado_em"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "color": { "mode": "fixed", "fixedColor": "#199e70" } },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Mensagens recebidas (total desde o boot do broker)",
+      "description": "Contador cumulativo do Mosquitto — uma linha achatada por muito tempo indica que ele parou de receber qualquer coisa.",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 16 },
+      "datasource": { "type": "postgres", "uid": "saap-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "saap-postgres" },
+          "format": "time_series",
+          "rawSql": "SELECT capturado_em AS time, mensagens_recebidas_total AS value\nFROM broker_stats\nWHERE $__timeFilter(capturado_em)\nORDER BY capturado_em"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "#4a3aa7" } },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 11,
+      "type": "text",
+      "title": "",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 16 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": {
+        "mode": "markdown",
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "**Ainda não implementado nesta entrega:** telemetria de saúde do ESP32 (heap livre, uptime, RSSI Wi-Fi). O firmware atual só publica eventos de contagem — adicionar um heartbeat periódico é trabalho de firmware, não de servidor. Fica como próxima etapa."
+      }
+    }
+  ]
+}

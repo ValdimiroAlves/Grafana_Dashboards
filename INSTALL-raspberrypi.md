@@ -211,8 +211,22 @@ docker compose ps    # os 4 serviços devem aparecer como "running"
 > Se você já subiu antes de rodar o `chmod`, rode-o agora e depois
 > `docker compose restart grafana node-red`.
 
+> `chmod: changing permissions of 'mosquitto/config/passwd': Operation not
+> permitted`? Normal, pode ignorar — o `passwd` foi criado por dentro de um
+> container (`mosquitto_passwd`, passo anterior), então pertence ao usuário
+> interno do Mosquitto, não ao usuário `saap` da Pi; só o dono (ou root) muda
+> a permissão dele, e ele já nasce legível pelo próprio Mosquitto. O `chmod`
+> segue normalmente para `grafana/` e `postgres/` apesar do erro nessa linha.
+
 A primeira subida baixa ~500 MB de imagens e compila a imagem do Node-RED —
 pode levar alguns minutos.
+
+> As cinco telas do Grafana (Produção, Sistema, Diagnóstico, Histórico/Gestão
+> e a visão geral) sobem juntas automaticamente. A tela **Sistema** (CPU/
+> memória/temperatura da Pi) depende do `pid: host` que já está no
+> `docker-compose.yml` deste repositório — nada extra pra configurar na Pi.
+> Detalhes e como aplicar isso numa instalação que já existia: seção
+> "Métricas de sistema e do broker" no [README.md](README.md).
 
 Acompanhe a ingestão:
 

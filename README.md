@@ -22,6 +22,23 @@ Nó de bancada (ESP32)                    Servidor (Raspberry Pi 5 / PC)
 > evento reenviado (RF03) via `INSERT ... ON CONFLICT DO NOTHING`, apoiado nos
 > índices únicos definidos em `postgres/init/001_schema.sql`.
 
+## Telas do Grafana
+
+Cinco dashboards, cada um pensado pra um público, com links cruzados entre eles
+(canto superior, ao lado do título):
+
+| Tela | uid | Pra quem | O que mostra |
+|---|---|---|---|
+| SAAP — Produção em tempo real | `saap-main` | visão geral / demonstração | tudo junto, é a original |
+| 🏭 Produção | `saap-producao` | operador/técnico | produção do período, meta por esteira, ritmo atual, status da linha |
+| 🖥️ Sistema | `saap-sistema` | TI/equipe técnica | CPU, memória e temperatura da Raspberry real, saúde do broker MQTT |
+| 🔧 Diagnóstico | `saap-diagnostico` | manutenção | última comunicação, quedas detectadas, clientes MQTT |
+| 📈 Histórico / Gestão | `saap-historico` | supervisor/gestor | produção por hora/dia/turno, comparação entre esteiras |
+
+**Não implementado ainda** (fica documentado nas próprias telas, não escondido):
+telemetria de saúde do ESP32 (a tela Sistema só cobre o lado do servidor) e
+comparação por operador (o sistema não identifica quem está em cada esteira).
+
 ## Pré-requisitos
 
 - Docker + Docker Compose
@@ -64,6 +81,14 @@ chmod -R a+rX grafana mosquitto postgres   # Grafana (uid 472) precisa ler as co
 docker compose up -d --build               # --build: a 1ª vez compila a imagem do Node-RED
 docker compose ps           # todos "running"
 ```
+
+> `chmod: changing permissions of 'mosquitto/config/passwd': Operation not
+> permitted`? Normal, pode ignorar — esse arquivo foi criado por dentro de um
+> container (o `mosquitto_passwd` da seção acima), então pertence ao usuário
+> interno do Mosquitto, não ao seu usuário do shell; só o dono (ou root) pode
+> mudar a permissão dele. Ele já nasce legível pelo próprio Mosquitto — não
+> precisa de chmod nenhum — e o comando continua normalmente para `grafana/`
+> e `postgres/` apesar do erro nessa única linha.
 
 Na primeira subida, abra o editor do Node-RED em `http://localhost:1880` e
 configure as duas credenciais que ficam em branco no `flows.json` versionado:
@@ -203,6 +228,44 @@ firmware real nunca chegou a implementar isso.
 > ```bash
 > docker exec -i saap-postgres psql -U saap -d saap < postgres/init/002_turno.sql
 > ```
+
+### Métricas de sistema e do broker (tela Sistema)
+
+Duas tabelas novas, alimentadas por um fluxo próprio no Node-RED (aba
+"SAAP - monitoramento" no editor), gravando um snapshot a cada ~30s:
+
+- **`sistema_metricas`**: carga de CPU, uso de memória e temperatura — lidos
+  com `os.loadavg()`/`os.totalmem()`/`os.freemem()` e
+  `/host_thermal/thermal_zone0/temp` dentro de um node Function.
+- **`broker_stats`**: clientes conectados, mensagens recebidas e uptime — o
+  Mosquitto já publica isso sozinho nos tópicos `$SYS/broker/...` (não precisa
+  mudar `mosquitto.conf`).
+
+Pra `os.loadavg()`/`os.totalmem()`/`os.freemem()` refletirem a **Raspberry
+real** (não o container), o serviço `node-red` no `docker-compose.yml` roda
+com `pid: host` — ele passa a enxergar a lista de processos do host (só
+leitura, não controla nada). É uma concessão de segurança aceitável numa rede
+local de teste (RNF05), mas **não faça isso** numa instalação exposta além da
+LAN. A temperatura vem de `/sys/class/thermal`, montado só-leitura e só esse
+subdiretório (não o `/sys` inteiro).
+
+> **Instalação que já existe:** três passos, nesta ordem.
+> 1. Rode `002_turno.sql` (se ainda não rodou) e `003_sistema.sql`:
+>    ```bash
+>    docker exec -i saap-postgres psql -U saap -d saap < postgres/init/002_turno.sql
+>    docker exec -i saap-postgres psql -U saap -d saap < postgres/init/003_sistema.sql
+>    ```
+> 2. `settings.js` é arquivo novo e `flows.json` ganhou a aba de monitoramento
+>    — nenhum dos dois se atualiza sozinho num volume que já existe (mesma
+>    ressalva de sempre). Mais simples recriar o volume do zero do que copiar
+>    arquivo por arquivo:
+>    ```bash
+>    docker compose down
+>    docker volume rm grafana_dashboards_node_red_data   # confirme o nome: docker volume ls | grep node_red
+>    docker compose up -d --build
+>    ```
+> 3. Refaça as duas credenciais no editor do Node-RED (o volume novo não tem
+>    nenhuma salva) — ver os três passos na seção "Subir", acima.
 
 ## Painéis e consultas (SQL)
 
