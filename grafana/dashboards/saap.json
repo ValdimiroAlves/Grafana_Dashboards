@@ -130,9 +130,10 @@
       },
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "displayMode": "gradient",
+        "displayMode": "basic",
         "orientation": "horizontal",
-        "showUnfilled": true
+        "showUnfilled": true,
+        "text": { "valueSize": 14 }
       }
     },
     {

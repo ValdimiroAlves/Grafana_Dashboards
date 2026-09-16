@@ -12,14 +12,15 @@ Tempo estimado: 40–60 min (a maior parte é download).
 
 | Item | Observação |
 |---|---|
-| Raspberry Pi 5 | do kit |
-| Fonte USB-C 27 W oficial | do kit — **use esta**, fonte fraca causa instabilidade |
-| Cooler ativo instalado na Pi | do kit — instale **antes** de ligar; a Pi 5 esquenta |
-| Cartão microSD 128 GB A2/V30 | do kit (ou um SSD USB, melhor para uso contínuo) |
-| Gabinete | do kit |
+| Raspberry Pi 5 |  |
+| Fonte USB-C 27 W oficial |  **use esta**, fonte fraca causa instabilidade |
+| Cooler ativo instalado na Pi |  instale **antes** de ligar; a Pi 5 esquenta |
+| Cartão microSD 128 GB A2/V30 |  (ou um SSD USB, melhor para uso contínuo) |
+| Gabinete | |
 | Cabo de rede (ideal) ou Wi-Fi | rede cabeada é mais estável para um servidor |
 | Outro computador (Windows) | para gravar o cartão e acessar por SSH |
-| Leitor de cartão microSD | do kit (leitor/adaptador USB) |
+| Leitor de cartão microSD | (leitor/adaptador USB) |
+
 
 ---
 
@@ -158,19 +159,20 @@ primeira vez.
 
 ## 7. Copiar o projeto para a Pi
 
-**Se o repositório do projeto já existe no GitHub:**
+**Se o repositório já existe no GitHub** (é este mesmo repositório —
+`docker-compose.yml` fica na raiz dele, sem subpasta):
 
 ```bash
 cd ~
-git clone <URL-do-repositorio> saap
-cd saap/servidor
+git clone <URL-do-repositorio> saap-servidor
+cd saap-servidor
 ```
 
-**Se ainda não existe** — copie a pasta `servidor/` do seu PC. No **PowerShell do
-Windows**, dentro da pasta do projeto:
+**Se ainda não existe no GitHub** — copie a pasta inteira do seu PC. No
+**PowerShell do Windows**, dentro da pasta do projeto:
 
 ```powershell
-scp -r .\servidor saap@saap.local:/home/saap/saap-servidor
+scp -r . saap@saap.local:/home/saap/saap-servidor
 ```
 
 E na Pi:
@@ -188,7 +190,7 @@ cp .env.example .env
 nano .env            # troque GRAFANA_PASSWORD e POSTGRES_PASSWORD; Ctrl+O, Enter, Ctrl+X
 ```
 
-O Mosquitto exige senha (RNF05) e **não sobe sem o arquivo de senhas** — gere
+O Mosquitto exige senha e **não sobe sem o arquivo de senhas** — gere
 antes de continuar (`-c` cria o arquivo, só use na primeira vez):
 
 ```bash
@@ -202,7 +204,7 @@ Anote a senha — ela vai entrar também no `menuconfig` de cada ESP32
 ```bash
 # IMPORTANTE: o Grafana roda como uid 472 dentro do container e precisa
 # de permissão de leitura nas pastas de configuração copiadas para a Pi.
-chmod -R a+rX grafana mosquitto postgres
+sudo chmod -R a+rX grafana mosquitto postgres
 
 docker compose up -d --build
 docker compose ps    # os 4 serviços devem aparecer como "running"
@@ -263,6 +265,8 @@ http://saap.local:3000
 Menu **Dashboards → pasta SAAP → "SAAP — Produção em tempo real"**. Vai estar
 vazio até chegar dado.
 
+
+
 ---
 
 ## 10. Testar com dados falsos (sem os ESP32)
@@ -294,6 +298,7 @@ docker exec -it saap-postgres psql -U saap -d saap \
 
 ## 11. Apontar os nós ESP32 para a Pi
 
+
 No firmware de cada nó, configure:
 
 ```
@@ -306,7 +311,7 @@ Teste a publicação de um nó a partir do PC antes de mexer no firmware:
 
 ```powershell
 # instale o mosquitto no Windows ou rode o simulador apontando para a Pi:
-python .\servidor\simulador\simula_bancadas.py --broker 192.168.1.50 `
+python .\simulador\simula_bancadas.py --broker 192.168.1.50 `
   --mqtt-user flowcount --mqtt-password "TROQUE-ESTA-SENHA"
 ```
 
@@ -361,15 +366,16 @@ Teste de verdade: `sudo reboot`, espere 2 min, reconecte e rode `docker compose 
 
 ---
 
-## 15. Segurança antes de usar "de verdade" (fora do TCC)
+## 15. Segurança antes de usar "de verdade"
 
 - Mosquitto: já pede senha (`password_file`, passo 8) — falta só TLS antes de
   expor além da LAN, e não há ACL por tópico (qualquer autenticado publica ou
   assina em qualquer tópico).
 - PostgreSQL: já pede usuário/senha (`POSTGRES_PASSWORD` no `.env`) — só troque
   o valor padrão de `.env.example` antes de qualquer uso real.
-- Node-RED: o editor em `:1880` não tem login por padrão. Habilite `adminAuth`
-  em `settings.js` antes de expor além da LAN de teste.
+- Node-RED: o editor em `:1880` não tem login por padrão. `node-red/settings.js`
+  já existe no repositório — falta só adicionar `adminAuth` nele antes de
+  expor além da LAN de teste.
 - Grafana: senha forte no `.env`, cadastro e acesso anônimo desativados (já no `docker-compose.yml`).
 - Não exponha as portas 1883/1880/3000 direto na internet — use o Tailscale
   (seção 16). Só o Grafana deve sair; MQTT, Postgres e o editor do Node-RED
@@ -379,7 +385,7 @@ Teste de verdade: `sudo reboot`, espere 2 min, reconecte e rode `docker compose 
 
 ## 16. Acesso remoto com Tailscale
 
-Para os integrantes do grupo acessarem o painel **de fora da rede local**, sem
+Para acessarem o painel **de fora da rede local**, sem
 mexer no roteador e mesmo com CGNAT da operadora. O Tailscale roda **no host da
 Pi** (não em container) e passa a alcançar a porta 3000 que o Docker já publica.
 **Só o Grafana é exposto** — Mosquitto (1883), PostgreSQL (5432) e o editor
@@ -418,8 +424,7 @@ tailscale ip -4
   gerar link para a conta Tailscale de cada integrante. Não consome os 3 assentos
   e basta se eles só precisam ver o painel.
 
-Com o Tailscale ligado no aparelho, o painel abre em **`http://cara:3000`**
-(de qualquer rede, inclusive 4G).
+Com o Tailscale ligado no aparelho, o painel abre em **`http://cara:3000`**.
 
 ### 16.4. (Opcional) HTTPS privado dentro do tailnet
 
@@ -441,7 +446,7 @@ Quando usar `serve` (ou `funnel`), descomente no `docker-compose.yml`, serviço
 
 e aplique: `docker compose up -d grafana`.
 
-### 16.5. (Opcional) Link público para avaliadores / pitch
+### 16.5. (Opcional) Link público
 
 1. Admin console → **DNS** → habilitar **HTTPS Certificates**.
 2. Admin console → **Access controls** → garantir que o nó pode usar Funnel
@@ -501,6 +506,7 @@ sudo systemctl enable --now ts-serve.service
    `http://cara:3000` → login do Grafana → dashboard "SAAP — Produção em tempo real".
 3. Se ativou `serve`/`funnel`: repetir com `https://cara.<tailnet>.ts.net`
    (o Funnel deve abrir até num aparelho **sem** Tailscale).
+
 4. `sudo reboot` na Pi; após ~2 min, repetir o passo 2 sem tocar em nada.
 5. Rodar o simulador na Pi e ver os painéis se moverem pela URL remota:
-   `python3 ~/servidor/simulador/simula_bancadas.py --broker localhost --mqtt-user flowcount --mqtt-password "TROQUE-ESTA-SENHA"`.
+   `python3 ~/saap-servidor/simulador/simula_bancadas.py --broker localhost --mqtt-user flowcount --mqtt-password "TROQUE-ESTA-SENHA"`.

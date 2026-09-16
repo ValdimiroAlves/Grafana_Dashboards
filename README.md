@@ -4,13 +4,15 @@ Este diretório sobe, com um comando, todo o lado do servidor do SAAP:
 o broker MQTT, a integração/validação dos eventos, o banco de dados e o
 painel de gestão (Grafana).
 
+[FOTO] <!-- captura da tela "SAAP — Produção em tempo real" com dado real, tema escuro -->
+
+
 ## Pipeline
 
 ```
 Nó de bancada (ESP32)                    Servidor (Raspberry Pi 5 / PC)
 ┌───────────────┐   MQTT/Wi-Fi   ┌────────────┐   ┌──────────┐   ┌────────────┐   ┌─────────┐
-│ sensor + botão │ ─────────────▶ │ Mosquitto  │ ▶ │ Node-RED │ ▶ │ PostgreSQL │ ▶ │ Grafana │
-│ conta + publica│                │ (broker)   │   │ (valida) │   │ (histórico)│   │ (painel)│
+│ sensor  + publica│                │ (broker)   │   │ (valida) │   │ (histórico)│   │ (painel)│
 └───────────────┘                └────────────┘   └──────────┘   └────────────┘   └─────────┘
 ```
 
@@ -35,9 +37,17 @@ Cinco dashboards, cada um pensado pra um público, com links cruzados entre eles
 | 🔧 Diagnóstico | `saap-diagnostico` | manutenção | última comunicação, quedas detectadas, clientes MQTT |
 | 📈 Histórico / Gestão | `saap-historico` | supervisor/gestor | produção por hora/dia/turno, comparação entre esteiras |
 
-**Não implementado ainda** (fica documentado nas próprias telas, não escondido):
+**Não implementado ainda** :
 telemetria de saúde do ESP32 (a tela Sistema só cobre o lado do servidor) e
 comparação por operador (o sistema não identifica quem está em cada esteira).
+
+### Capturas de tela
+
+| 🏭 Produção | 🔧 Diagnóstico |
+|---|---|
+| [FOTO] | [FOTO] |
+| **📈 Histórico / Gestão** | **🖥️ Sistema** |
+| [FOTO] | [FOTO] |
 
 ## Pré-requisitos
 
@@ -48,7 +58,7 @@ comparação por operador (o sistema não identifica quem está em cada esteira)
 > [INSTALL-raspberrypi.md](INSTALL-raspberrypi.md) — cobre desde gravar o cartão
 > até os containers subindo sozinhos no boot.
 
-## Autenticação MQTT (RNF05 — fazer ANTES de subir)
+## Autenticação MQTT 
 
 O `mosquitto.conf` já exige senha (`allow_anonymous false` + `password_file`).
 Sem o arquivo de senhas, o Mosquitto **não sobe** — então gere-o antes do
@@ -77,18 +87,11 @@ ESP32 (`FLOWCOUNT_MQTT_USERNAME`/`FLOWCOUNT_MQTT_PASSWORD`), no simulador
 
 ```bash
 cp .env.example .env        # troque GRAFANA_PASSWORD e POSTGRES_PASSWORD
-chmod -R a+rX grafana mosquitto postgres   # Grafana (uid 472) precisa ler as configs
+sudo chmod -R a+rX grafana mosquitto postgres   # Grafana (uid 472) precisa ler as configs
 docker compose up -d --build               # --build: a 1ª vez compila a imagem do Node-RED
 docker compose ps           # todos "running"
 ```
 
-> `chmod: changing permissions of 'mosquitto/config/passwd': Operation not
-> permitted`? Normal, pode ignorar — esse arquivo foi criado por dentro de um
-> container (o `mosquitto_passwd` da seção acima), então pertence ao usuário
-> interno do Mosquitto, não ao seu usuário do shell; só o dono (ou root) pode
-> mudar a permissão dele. Ele já nasce legível pelo próprio Mosquitto — não
-> precisa de chmod nenhum — e o comando continua normalmente para `grafana/`
-> e `postgres/` apesar do erro nessa única linha.
 
 Na primeira subida, abra o editor do Node-RED em `http://localhost:1880` e
 configure as duas credenciais que ficam em branco no `flows.json` versionado:
@@ -114,7 +117,7 @@ já vêm provisionados (pasta `SAAP` no menu Dashboards).
 
 Use **Tailscale** — passo a passo na seção 16 do
 [INSTALL-raspberrypi.md](INSTALL-raspberrypi.md). Resumo: instala o Tailscale no
-host da Pi, os integrantes acessam `http://cara:3000` pela malha privada, e
+host da Pi, os integrantes acessam `http://localhost:3000` pela malha privada, e
 `tailscale funnel 3000` gera um link HTTPS público quando precisar mostrar para
 avaliadores. **Só o Grafana é exposto** — MQTT, Postgres e o editor do
 Node-RED ficam só na LAN.
@@ -180,7 +183,7 @@ Mensagem MQTT esperada (tópico `fabrica/<setor>/bancada/<id>/evento`):
 Só `bancada`, `ts` e `delta` são obrigatórios — o Node-RED descarta (com log
 no debug "evento inválido") qualquer mensagem sem esses três campos válidos.
 
-### Deduplicação (RF03)
+### Deduplicação
 
 Dois índices únicos em `producao` fazem o trabalho, e o Node-RED grava com
 `INSERT ... ON CONFLICT DO NOTHING` (reenviar o mesmo evento não aumenta o total):
@@ -202,8 +205,7 @@ Dois índices únicos em `producao` fazem o trabalho, e o Node-RED grava com
 
 ### Turno
 
-"Turno" **não** é um requisito do documento (`tcc_a`) nem algo que o firmware
-do FlowCount envia — é calculado no banco a partir do horário real do evento
+"Turno" é calculado no banco a partir do horário real do evento
 (`ocorrido_em`), pela função `turno_do_horario()` em
 [`postgres/init/002_turno.sql`](postgres/init/002_turno.sql):
 
@@ -236,7 +238,9 @@ Duas tabelas novas, alimentadas por um fluxo próprio no Node-RED (aba
 
 - **`sistema_metricas`**: carga de CPU, uso de memória e temperatura — lidos
   com `os.loadavg()`/`os.totalmem()`/`os.freemem()` e
-  `/host_thermal/thermal_zone0/temp` dentro de um node Function.
+  `/host_sys/class/thermal/thermal_zoneN/temp` (tenta `0` a `3`; o índice do
+  sensor de CPU varia entre modelos/kernels de Raspberry Pi) dentro de um node
+  Function.
 - **`broker_stats`**: clientes conectados, mensagens recebidas e uptime — o
   Mosquitto já publica isso sozinho nos tópicos `$SYS/broker/...` (não precisa
   mudar `mosquitto.conf`).
@@ -246,8 +250,11 @@ real** (não o container), o serviço `node-red` no `docker-compose.yml` roda
 com `pid: host` — ele passa a enxergar a lista de processos do host (só
 leitura, não controla nada). É uma concessão de segurança aceitável numa rede
 local de teste (RNF05), mas **não faça isso** numa instalação exposta além da
-LAN. A temperatura vem de `/sys/class/thermal`, montado só-leitura e só esse
-subdiretório (não o `/sys` inteiro).
+LAN. A temperatura vem do `/sys` **inteiro**, montado só-leitura em
+`/host_sys` — montar só `/sys/class/thermal` não funciona, porque
+`thermal_zoneN` é um link simbólico (ex.: `-> ../../devices/virtual/thermal/
+thermal_zone0`) que aponta pra fora de um subdiretório montado sozinho (dá
+`ENOENT` ao tentar ler).
 
 > **Instalação que já existe:** três passos, nesta ordem.
 > 1. Rode `002_turno.sql` (se ainda não rodou) e `003_sistema.sql`:
@@ -282,14 +289,17 @@ superior direito.
 | Peças por turno | Tabela | `SELECT turno_do_horario(ocorrido_em) AS turno, bancada, sum(delta) FROM producao WHERE $__timeFilter(ocorrido_em) GROUP BY turno, bancada` |
 | Peças por minuto | Time series (linha) | igual ao "por hora", agrupando em `$__timeGroup(ocorrido_em,'1m')` |
 | Última comunicação por bancada (RF04) | Tabela | `SELECT bancada, max(recebido_em) FROM producao GROUP BY bancada` — sempre olha o histórico inteiro, não só o período selecionado |
+| Quedas de comunicação (tela Diagnóstico) | Tabela | gaps de mais de 2 min entre eventos consecutivos da mesma bancada, via `LAG(ocorrido_em) OVER (PARTITION BY bancada ORDER BY ocorrido_em)` — ver `grafana/dashboards/saap-diagnostico.json` |
+| CPU / memória / temperatura (tela Sistema) | Stat + Time series | `SELECT capturado_em AS time, <coluna> FROM sistema_metricas WHERE $__timeFilter(capturado_em)` |
+| Saúde do broker (tela Sistema) | Stat + Time series | mesma forma, lendo `broker_stats` (`clientes_conectados`, `mensagens_recebidas_total`, `uptime_segundos`) |
 
 ### Meta de produção
 
-Para "comparar com a meta" (RF10): no painel *Peças por bancada*, em
+Para "comparar com a meta" : no painel *Peças por bancada*, em
 **Field > Thresholds**, ponha o valor da meta (ex.: 80 peças/turno) — as barras
 ficam verdes ao atingir e vermelhas abaixo. Já vem um exemplo com degraus em 40 e 80.
 
-## Alerta de micro-parada (RF09)
+## Alerta de micro-parada 
 
 Duas formas:
 
@@ -344,7 +354,7 @@ docker compose restart node-red
   publica/assina em qualquer tópico.
 - PostgreSQL: já exige usuário/senha (`POSTGRES_PASSWORD` no `.env`) — só
   troque o valor padrão de `.env.example` antes de qualquer uso real.
-- Node-RED: o editor em `:1880` **não tem login por padrão**. Antes de expor
-  além da LAN de teste, habilite `adminAuth` em `settings.js` (dentro do
-  volume `node_red_data`, ou via um `settings.js` próprio montado no compose).
+- Node-RED: o editor em `:1880` **não tem login por padrão**. `node-red/settings.js`
+  já existe (é copiado pra imagem no `node-red/Dockerfile`) — falta só adicionar
+  `adminAuth` nele antes de expor além da LAN de teste.
 - Grafana: senha forte no `.env`; desabilitar sign-up (já feito no compose).

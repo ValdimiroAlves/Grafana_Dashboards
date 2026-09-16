@@ -49,7 +49,12 @@ services:
       # renomeando um arquivo temporário por cima deles, e isso falha (EBUSY)
       # se o alvo for um bind mount de arquivo único. Os dois entram no volume
       # via COPY no node-red/Dockerfile — ver o comentário lá.
-      - /sys/class/thermal:/host_thermal:ro   # só a temperatura, somente leitura — não o /sys inteiro
+      # /sys inteiro, só leitura. Tentamos montar só /sys/class/thermal antes,
+      # mas thermal_zone0 é um LINK SIMBÓLICO (ex.: -> ../../devices/virtual/
+      # thermal/thermal_zone0) — com um subdiretório só, o link aponta pra
+      # fora do que foi montado e a leitura dá ENOENT. Com /sys inteiro o link
+      # resolve certo.
+      - /sys:/host_sys:ro
     depends_on:
       - mosquitto
       - postgres

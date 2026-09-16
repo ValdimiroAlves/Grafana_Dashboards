@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS sistema_metricas (
     capturado_em     TIMESTAMPTZ NOT NULL DEFAULT now(),
     carga_cpu_1min   REAL,   -- os.loadavg()[0] da Raspberry (não do container — ver node-red pid: host)
     memoria_uso_pct  REAL,   -- (total - livre) / total * 100
-    temperatura_c    REAL    -- /sys/class/thermal/thermal_zone0/temp, dividido por 1000
+    temperatura_c    REAL    -- /sys/class/thermal/thermal_zoneN/temp, dividido por 1000
 );
 
 CREATE INDEX IF NOT EXISTS sistema_metricas_capturado_idx
@@ -15,7 +15,7 @@ CREATE INDEX IF NOT EXISTS sistema_metricas_capturado_idx
 
 COMMENT ON TABLE sistema_metricas IS
     'Snapshot periódico da Raspberry Pi real. Requer node-red com pid: host '
-    '(docker-compose.yml) e /sys/class/thermal montado — ver README.md.';
+    'e /sys inteiro montado em /host_sys (docker-compose.yml) — ver README.md.';
 
 CREATE TABLE IF NOT EXISTS broker_stats (
     id                          BIGSERIAL PRIMARY KEY,
