@@ -4,10 +4,6 @@ Este diretório sobe, com um comando, todo o lado do servidor do SAAP:
 o broker MQTT, a integração/validação dos eventos, o banco de dados e o
 painel de gestão (Grafana).
 
-captura da tela "SAAP — Produção em tempo real" 
-<img width="1889" height="1045" alt="Captura de tela 2026-09-16 133609" src="https://github.com/user-attachments/assets/9c845ec5-e9be-4491-a38d-d3450aa5ac09" />
-
-
 
 ## Pipeline
 
@@ -44,6 +40,10 @@ telemetria de saúde do ESP32 (a tela Sistema só cobre o lado do servidor) e
 comparação por operador (o sistema não identifica quem está em cada esteira).
 
 ### Capturas de tela
+
+**SAAP — Produção em tempo real**
+
+<img width="1889" height="1045" alt="Captura de tela 2026-09-16 133609" src="https://github.com/user-attachments/assets/9c845ec5-e9be-4491-a38d-d3450aa5ac09" />
 
 **🏭 Produção**
 
