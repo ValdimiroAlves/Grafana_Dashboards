@@ -4,7 +4,9 @@ Este diretório sobe, com um comando, todo o lado do servidor do SAAP:
 o broker MQTT, a integração/validação dos eventos, o banco de dados e o
 painel de gestão (Grafana).
 
-[FOTO] <!-- captura da tela "SAAP — Produção em tempo real" com dado real, tema escuro -->
+captura da tela "SAAP — Produção em tempo real" 
+<img width="1889" height="1045" alt="Captura de tela 2026-09-16 133609" src="https://github.com/user-attachments/assets/9c845ec5-e9be-4491-a38d-d3450aa5ac09" />
+
 
 
 ## Pipeline
@@ -43,11 +45,22 @@ comparação por operador (o sistema não identifica quem está em cada esteira)
 
 ### Capturas de tela
 
-| 🏭 Produção | 🔧 Diagnóstico |
-|---|---|
-| [FOTO] | [FOTO] |
-| **📈 Histórico / Gestão** | **🖥️ Sistema** |
-| [FOTO] | [FOTO] |
+**🏭 Produção**
+
+<img width="1905" height="970" alt="Captura de tela 2026-09-16 133434" src="https://github.com/user-attachments/assets/0ebcb9d6-e0a3-42b8-b5de-66419c786f02" />
+
+**🔧 Diagnóstico**
+
+<img width="1912" height="503" alt="Captura de tela 2026-09-16 133508" src="https://github.com/user-attachments/assets/8e2e3157-74f3-484c-986e-c2bd7be0c21d" />
+
+**📈 Histórico / Gestão**
+
+<img width="1889" height="1053" alt="Captura de tela 2026-09-16 133624" src="https://github.com/user-attachments/assets/1cc4e83b-f0d0-4704-b334-8dc737bbe3c3" />
+
+**🖥️ Sistema**
+
+<img width="1917" height="750" alt="Captura de tela 2026-09-16 133531" src="https://github.com/user-attachments/assets/25c53ec6-b772-404b-a739-6acfb49089d9" />
+
 
 ## Pré-requisitos
 
